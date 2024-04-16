@@ -162,6 +162,8 @@ cython_debug/
 
 #image
 *.bmp
+*.png
+*.gif
 
 #Matlab
 __MACOSX/

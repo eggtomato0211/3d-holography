@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "3d-holography"
+version = "0.1.0"
+description = ""
+authors = ["shota_mizusaki <nrxg129@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -6,6 +6,7 @@ import time
 import concurrent.futures
 import multiprocessing as mp
 from threading import Thread
+import os
 
 def nearpropCONV(Comp1, sizex, sizey, dx, dy, shiftx, shifty, wa, d):
     if d == 0:
@@ -31,7 +32,7 @@ def generate_random_phase(shape):
 def process_image(n, images, sizex, sizey, dx, dy, wav_len, output_images, num_images):
     initial_phase = generate_random_phase(images[n].shape)
     input_image = images[n] * np.exp(1j * initial_phase)
-    d = (n+1) * (256/num_images)
+    d = (n+1) * (256/num_images)*10**times + initial_place
     output_images[n] = nearpropCONV(input_image, sizex, sizey, dx, dy, 0, 0, wav_len, d)
 
 # 波長や画像サイズなどのパラメータ
@@ -41,6 +42,8 @@ Nx, Ny = 1024, 1024
 dx = 3.45 * 10**-6
 dy = dx
 wav_num = 2 * np.pi / wav_len
+times = -3
+initial_place = (10**times)*1000
 
 # フィギュアを作成
 fig = plt.figure()
@@ -51,7 +54,7 @@ start_time = time.time()
 name = 'number'
 
 # 画像の枚数
-num_images = 4
+num_images = 128
 
 # 出力画像の初期化
 output_images = [np.zeros((Nx, Ny), dtype=np.complex128) for _ in range(num_images)]
@@ -87,19 +90,24 @@ fig = plt.figure()
 # 再生計算
 SLM_data = np.exp(i * phase_output)
 
+# フォルダを作成
+folder_name = f'animation_concurrent_{num_images}_10{times}_initialPlace{initial_place}'
+os.makedirs(folder_name, exist_ok=True)
 
 def update(i): 
     start_time = time.time() 
-    reconst = nearpropCONV(SLM_data, Nx, Ny, dx, dy, 0, 0, wav_len, -1.0 * (i+1) * (256/num_images)) 
+    reconst = nearpropCONV(SLM_data, Nx, Ny, dx, dy, 0, 0, wav_len, -1.0 * ((i+1) * (256*10**times/num_images) + initial_place)) 
     plt.imshow(np.abs(reconst), cmap='gray') 
     # 画像の処理時間計測終了 
-    processing_time = time.time() - start_time 
+    processing_time = time.time() - start_time
+      # フレームをファイルとして保存
+    plt.savefig(f'./{folder_name}/animation_concurrent_{num_images}_10{times}_initialPlace{initial_place}_{i+1}.png') 
     # 時間表示 
     print(f"画像の処理時間: {processing_time} 秒")
 
 #アニメーションオブジェクトの作成
 movie = animation.FuncAnimation(fig, update, frames=num_images, interval=1000)
-movie.save(f'animation_concurrent_{num_images}.gif', writer='pillow')
+movie.save(f'./{folder_name}/animation_concurrent_{num_images}_10{times}_initialPlace{initial_place}.gif', writer='pillow')
 # def parallel_update(i, SLM_data, Nx, Ny, dx, dy, wav_len, num_images):
 #     start_time = time.time()
 #     reconst = nearpropCONV(SLM_data, Nx, Ny, dx, dy, 0, 0, wav_len, -1.0 * (i+1) * (256/num_images))
