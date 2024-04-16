@@ -1,8 +1,11 @@
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 import time
 import concurrent.futures
+import multiprocessing as mp
+from threading import Thread
 
 def nearpropCONV(Comp1, sizex, sizey, dx, dy, shiftx, shifty, wa, d):
     if d == 0:
@@ -25,10 +28,10 @@ def nearpropCONV(Comp1, sizex, sizey, dx, dy, shiftx, shifty, wa, d):
 def generate_random_phase(shape):
     return (np.random.rand(*shape) - 0.5) * 2.0 * 2.0 * np.pi
 
-def process_image(n, images, sizex, sizey, dx, dy, wav_len, output_images):
+def process_image(n, images, sizex, sizey, dx, dy, wav_len, output_images, num_images):
     initial_phase = generate_random_phase(images[n].shape)
     input_image = images[n] * np.exp(1j * initial_phase)
-    d = (n+1) * 5.0
+    d = (n+1) * (256/num_images)
     output_images[n] = nearpropCONV(input_image, sizex, sizey, dx, dy, 0, 0, wav_len, d)
 
 # 波長や画像サイズなどのパラメータ
@@ -39,13 +42,16 @@ dx = 3.45 * 10**-6
 dy = dx
 wav_num = 2 * np.pi / wav_len
 
+# フィギュアを作成
+fig = plt.figure()
+
 # 画像の読み込み時間計測開始
 start_time = time.time()
 
 name = 'number'
 
 # 画像の枚数
-num_images = 32
+num_images = 4
 
 # 出力画像の初期化
 output_images = [np.zeros((Nx, Ny), dtype=np.complex128) for _ in range(num_images)]
@@ -56,7 +62,7 @@ images = [cv2.resize(cv2.imread(f'./src/{name}_{i:04d}.bmp', cv2.IMREAD_GRAYSCAL
 # 並列処理
 with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
     # 各画像に対してprocess_image関数を並列に実行
-    futures = [executor.submit(process_image, n, images, Nx, Ny, dx, dy, wav_len, output_images) for n in range(num_images)]
+    futures = [executor.submit(process_image, n, images, Nx, Ny, dx, dy, wav_len, output_images, num_images) for n in range(num_images)]
 
     # すべてのタスクの完了を待つ
     concurrent.futures.wait(futures)
@@ -75,39 +81,43 @@ processing_time = time.time() - start_time
 # 時間表示
 print(f"画像の処理時間: {processing_time} 秒")
 
-# 位相分布の表示
-plt.figure(4)
-plt.imshow(phase_output, cmap='gray')
-plt.title('Phase Distribution')
-plt.show()
+# フィギュアを作成
+fig = plt.figure()
 
 # 再生計算
 SLM_data = np.exp(i * phase_output)
 
-# 距離-d1での再生像
-reconst1 = nearpropCONV(SLM_data, Nx, Ny, dx, dy, 0, 0, wav_len, -1.0 * 50)
-plt.figure(5)
-plt.imshow(np.abs(reconst1), cmap='gray')
-plt.title('Reconstruction at Distance -d1')
-plt.show()
 
-# 距離-d2での再生像
-reconst2 = nearpropCONV(SLM_data, Nx, Ny, dx, dy, 0, 0, wav_len, -1.0 * 100)
-plt.figure(6)
-plt.imshow(np.abs(reconst2), cmap='gray')
-plt.title('Reconstruction at Distance -d2')
-plt.show()
+def update(i): 
+    start_time = time.time() 
+    reconst = nearpropCONV(SLM_data, Nx, Ny, dx, dy, 0, 0, wav_len, -1.0 * (i+1) * (256/num_images)) 
+    plt.imshow(np.abs(reconst), cmap='gray') 
+    # 画像の処理時間計測終了 
+    processing_time = time.time() - start_time 
+    # 時間表示 
+    print(f"画像の処理時間: {processing_time} 秒")
 
-# # 距離-d3での再生像
-# reconst2 = nearpropCONV(SLM_data, Nx, Ny, dx, dy, 0, 0, wav_len, -1.0 * 60)
-# plt.figure(7)
-# plt.imshow(np.abs(reconst2), cmap='gray')
-# plt.title('Reconstruction at Distance -d3')
-# plt.show()
+#アニメーションオブジェクトの作成
+movie = animation.FuncAnimation(fig, update, frames=num_images, interval=1000)
+movie.save(f'animation_concurrent_{num_images}.gif', writer='pillow')
+# def parallel_update(i, SLM_data, Nx, Ny, dx, dy, wav_len, num_images):
+#     start_time = time.time()
+#     reconst = nearpropCONV(SLM_data, Nx, Ny, dx, dy, 0, 0, wav_len, -1.0 * (i+1) * (256/num_images))
+#     processing_time = time.time() - start_time
+#     print(f"Image {i} processing time: {processing_time} seconds")
+#     return reconst
 
-# # 距離-d4での再生像
-# reconst2 = nearpropCONV(SLM_data, Nx, Ny, dx, dy, 0, 0, wav_len, -1.0 * 80)
-# plt.figure(7)
-# plt.imshow(np.abs(reconst2), cmap='gray')
-# plt.title('Reconstruction at Distance -d4')
-# plt.show()
+# def display_images(results):
+#     reconst = [r.get() for r in results]
+#     plt.imshow(np.abs(np.array(reconst)), cmap='gray')
+#     plt.pause(0.01)
+    
+# pool = mp.Pool(processes=4)
+# results = [pool.apply_async(parallel_update, args=(i, SLM_data, Nx, Ny, dx, dy, wav_len, num_images)) for i in range(num_images)]
+
+# display_thread = Thread(target=lambda: display_images(results))
+# display_thread.start()
+
+# pool.close()
+# pool.join()
+# display_thread.join()

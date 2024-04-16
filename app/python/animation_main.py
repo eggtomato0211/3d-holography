@@ -38,7 +38,7 @@ start_time = time.time()
 name = 'number'
 
 # 画像の枚数
-num_images = 2
+num_images = 4
 
 # 1つの画像の伝搬計算した結果を入れる配列
 output_images = np.zeros((num_images, Nx, Ny), dtype=complex)  # 初期化修正
@@ -53,7 +53,7 @@ for n in range(num_images):
     # 入力画像
     input_image = images[n] * np.exp(i * initial_phase)
 
-    d = (n+1) * 50.0
+    d = (n+1) * (256/num_images)  # 画像の枚数によって距離を変更
 
     # nearpropCONVは光波の空間伝搬を計算するフレネル伝搬計算
     output_images[n] = nearpropCONV(input_image, Nx, Ny, dx, dy, 0, 0, wav_len, d)
@@ -81,30 +81,10 @@ plt.show()
 # 再生計算
 SLM_data = np.exp(i * phase_output)
 
-# 距離-d1での再生像
-reconst1 = nearpropCONV(SLM_data, Nx, Ny, dx, dy, 0, 0, wav_len, -1.0 * 50)
-plt.figure(5)
-plt.imshow(np.abs(reconst1), cmap='gray')
-plt.title('Reconstruction at Distance -d1')
-plt.show()
-
-# 距離-d2での再生像
-reconst2 = nearpropCONV(SLM_data, Nx, Ny, dx, dy, 0, 0, wav_len, -1.0 * 100)
-plt.figure(6)
-plt.imshow(np.abs(reconst2), cmap='gray')
-plt.title('Reconstruction at Distance -d2')
-plt.show()
-
-# # 距離-d3での再生像
-# reconst2 = nearpropCONV(SLM_data, Nx, Ny, dx, dy, 0, 0, wav_len, -1.0 * 60)
-# plt.figure(7)
-# plt.imshow(np.abs(reconst2), cmap='gray')
-# plt.title('Reconstruction at Distance -d3')
-# plt.show()
-
-# # 距離-d4での再生像
-# reconst2 = nearpropCONV(SLM_data, Nx, Ny, dx, dy, 0, 0, wav_len, -1.0 * 80)
-# plt.figure(7)
-# plt.imshow(np.abs(reconst2), cmap='gray')
-# plt.title('Reconstruction at Distance -d4')
-# plt.show()
+#それぞれの距離での再生像を表示したい場合
+for i in range(num_images):
+    reconst = nearpropCONV(SLM_data, Nx, Ny, dx, dy, 0, 0, wav_len, -1.0 * (i+1) * (256/num_images))
+    plt.figure(5 + i)
+    plt.imshow(np.abs(reconst), cmap='gray')
+    plt.title(f'Reconstruction at Distance -d{i+1}')
+    plt.show()
