@@ -39,12 +39,12 @@ def process_image(n, images, sizex, sizey, dx, dy, wav_len, output_images):
 # 波長や画像サイズなどのパラメータ
 i = 1j
 wav_len = 532.0 * 10**-9
-Nx, Ny = 128, 128
+Nx, Ny = 1024, 1024
 dx = 3.45 * 10**-6
 dy = dx
-dz = 10
+dz = 1
 wav_num = 2 * np.pi / wav_len
-times = -4
+times = -5 
 initial_place = (10**times)*1000
 pixels = 10
 
@@ -58,16 +58,18 @@ name = 'number'
 
 # 画像の枚数
 num_images = 10
+total_images = 10000
+
 # フォルダを作成
-folder_name = f'output/generateThreadOutputDataSet_{num_images}_{Nx}x{Ny}_10{times}_initialPlace{initial_place}'
+folder_name = f'output/generateThreadOutputDataSet_{num_images}_{Nx}x{Ny}_10{times}_pixels={pixels}_d={dz *10**times}_initialPlace{initial_place}'
 os.makedirs(folder_name, exist_ok=True)
 
-for n in range(780, 1000):
+for n in range(0, 1):
     # 出力画像の初期化
     output_images = [np.zeros((Nx, Ny), dtype=np.complex128) for _ in range(num_images)]
 
     # 画像の読み込みとリサイズ
-    images = [cv2.resize(cv2.imread(f'./src/generated_original_images_10000_{pixels}_{Nx}x{Ny}/image_{(n*10 + i):05d}.png', cv2.IMREAD_GRAYSCALE).astype(float), (Nx, Ny)) for i in range(1, num_images + 1)]
+    images = [cv2.resize(cv2.imread(f'./src/generated_original_images_{total_images}_{pixels}_{Nx}x{Ny}/image_{(n*10 + i):05d}.png', cv2.IMREAD_GRAYSCALE).astype(float), (Nx, Ny)) for i in range(1, num_images + 1)]
 
     # 並列処理
     with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:

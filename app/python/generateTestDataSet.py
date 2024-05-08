@@ -4,13 +4,14 @@ from PIL import Image, ImageDraw
 import concurrent.futures
 
 # 画像サイズ
-width, height = 1024, 1024
+width, height = 128, 128
 
-num_images = 10
-pixels = 10
+num_images = 10000
+pixels = 1
 
 # 保存用ディレクトリがない場合は作成
 save_dir = f"./src/generated_original_images_{num_images}_{pixels}_{width}x{height}"
+print(save_dir)
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)
     

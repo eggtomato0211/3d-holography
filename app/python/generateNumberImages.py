@@ -1,11 +1,18 @@
 import numpy as np
 import cv2
+import os
 
 # 画像の枚数
-num_images = 256
+num_images = 128
+
+width, height = 128, 128
 
 # 画像サイズ
-image_size = (256, 256)
+image_size = (width, height)
+
+# フォルダを作成
+folder_name = f'./src/generated_original_number_images_{num_images}_{width}x{height}'
+os.makedirs(folder_name, exist_ok=True)
 
 # 画像生成および保存
 for i in range(num_images):
@@ -16,15 +23,15 @@ for i in range(num_images):
     number = i+1
     # 数字を描画
     font = cv2.FONT_HERSHEY_SIMPLEX
-    font_scale = 4
-    font_thickness = 5
+    font_scale = 2
+    font_thickness = 2
     font_color = 255  # 白色
     text_size = cv2.getTextSize(str(number), font, font_scale, font_thickness)[0]
     text_position = ((image_size[1] - text_size[0]) // 2, (image_size[0] + text_size[1]) // 2)
     cv2.putText(white_image, str(number), text_position, font, font_scale, font_color, font_thickness, cv2.LINE_AA)
 
     # 画像の保存
-    file_path = f'./src/number_{i + 1:04d}.bmp'
+    file_path = f'./src/generated_original_number_images_{num_images}_{width}x{height}/number_{i + 1:05d}.png'
     cv2.imwrite(file_path, white_image)
 
 print(f"{num_images}枚の白い背景に数字が描かれた画像を生成しました。")
