@@ -44,7 +44,7 @@ dx = 3.45 * 10**-6
 dy = dx
 dz = 1
 wav_num = 2 * np.pi / wav_len
-times = -5 
+times = -4 
 initial_place = (10**times)*1000
 pixels = 10
 
