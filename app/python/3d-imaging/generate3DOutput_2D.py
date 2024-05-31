@@ -55,8 +55,6 @@ fig = plt.figure()
 # 画像の読み込み時間計測開始
 start_time = time.time()
 
-name = 'number'
-
 # 画像の枚数
 num_images = 32
 
@@ -64,56 +62,63 @@ num_images = 32
 folder_name = f'C:\\Users\\Owner\\mizusaki\\3d-holography\\app\python\\3d-imaging\\output\\RawOutputData_{num_images}_{Nx}x{Ny}_10{times}_pixels={pixels}_d={dz *10**times}_initialPlace{initial_place}'
 os.makedirs(folder_name, exist_ok=True)
 
-for n in range(0, 1):
-    # 出力画像の初期化
-    output_images = [np.zeros((Nx, Ny), dtype=np.complex128) for _ in range(num_images)]
 
-    # 画像の読み込みとリサイズ
-    images = [cv2.resize(cv2.imread(f'C:\\Users\\Owner\\mizusaki\\3d-holography\\app\python\\3d-imaging\\src\\Original2Dimages_{box_number}_{pixels}px_{Nx}x{Ny}x{num_images}\\image_{(n*10 + i):05d}.png', cv2.IMREAD_GRAYSCALE).astype(float), (Nx, Ny)) for i in range(1, num_images + 1)]
+# 出力画像の初期化
+output_images = [np.zeros((Nx, Ny), dtype=np.complex128) for _ in range(num_images)]
 
-    # 並列処理
-    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
-        # 各画像に対してprocess_image関数を並列に実行
-        futures = [executor.submit(process_image, n, images, Nx, Ny, dx, dy, wav_len, output_images) for n in range(num_images)]
+# 画像の読み込みとリサイズ
+images = [cv2.resize(cv2.imread(f'C:\\Users\\Owner\\mizusaki\\3d-holography\\app\python\\3d-imaging\\src\\Original2Dimages_{box_number}_{pixels}px_{Nx}x{Ny}x{num_images}\\image_{(i):05d}.png', cv2.IMREAD_GRAYSCALE).astype(float), (Nx, Ny)) for i in range(1, num_images + 1)]
 
-        # すべてのタスクの完了を待つ
-        concurrent.futures.wait(futures)
+# 並列処理
+with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+    # 各画像に対してprocess_image関数を並列に実行
+    futures = [executor.submit(process_image, n, images, Nx, Ny, dx, dy, wav_len, output_images) for n in range(num_images)]
 
-    # 合計する
-    total_output_images = np.sum(output_images, axis=0)
-    print(total_output_images)
+    # すべてのタスクの完了を待つ
+    concurrent.futures.wait(futures)
 
-    # 振幅と位相分布の計算
-    amplitude_output = np.abs(total_output_images)
-    phase_output = np.angle(total_output_images)
+# 合計する
+total_output_images = np.sum(output_images, axis=0)
+print(total_output_images)
 
-    # 画像の処理時間計測終了
-    processing_time = time.time() - start_time
+# 振幅と位相分布の計算
+amplitude_output = np.abs(total_output_images)
+phase_output = np.angle(total_output_images)
 
-    # 時間表示
-    print(f"画像の処理時間: {processing_time} 秒")
+# 画像の処理時間計測終了
+processing_time = time.time() - start_time
 
-    # フィギュアを作成
-    fig = plt.figure()
+# 時間表示
+print(f"画像の処理時間: {processing_time} 秒")
 
-    # 再生計算
-    SLM_data = np.exp(i * phase_output)
+# フィギュアを作成
+fig = plt.figure()
 
-    def cal_save_image(i, num_images, SLM_data, Nx, Ny, dx, dy, wav_len, initial_place, times, folder_name):
-        reconst_2d = nearpropCONV(SLM_data, Nx, Ny, dx, dy, 0, 0, wav_len, -1.0 * ((i) * dz * 10**times + initial_place))
-        print("process：", i+1)
-        # 2次元配列を3次元配列に変換
-        sizex, sizey = reconst_2d.shape
-        reconst_3d = np.zeros((Nx, Ny, num_images))
-        reconst_3d[:, :, 0] = reconst_2d
-        mpimg.imsave(f'{folder_name}/image_{(n*10 + i):05d}.png', np.abs(reconst), cmap='gray')
+# 再生計算
+SLM_data = np.exp(i * phase_output)
 
-    # 並列処理
-    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
-        start = time.time()
-        # 各画像に対してcal_save_image関数を並列に実行
-        futures = [executor.submit(cal_save_image, i, num_images, SLM_data, Nx, Ny, dx, dy, wav_len, initial_place, times, folder_name) for i in range(1, num_images+1)]
-        # すべてのタスクの完了を待つ
-        concurrent.futures.wait(futures)
-        end = time.time()
-        print('マルチスレッド: TIME {:.4f}\n'.format(end - start))
+# Initialize a 3D array to store the results
+reconst_3d = np.zeros((Nx, Ny, num_images))
+
+def cal_save_image(i, SLM_data, Nx, Ny, dx, dy, wav_len, initial_place, times):
+    reconst_2d = nearpropCONV(SLM_data, Nx, Ny, dx, dy, 0, 0, wav_len, -1.0 * ((i) * dz * 10**times + initial_place))
+    print("process：", i+1)
+    return reconst_2d
+
+# 並列処理
+with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+    start = time.time()
+    # 各画像に対してcal_save_image関数を並列に実行
+    futures = [executor.submit(cal_save_image, i, SLM_data, Nx, Ny, dx, dy, wav_len, initial_place, times) for i in range(1, num_images+1)]
+    for i, future in enumerate(concurrent.futures.as_completed(futures)):
+        print(i)
+        reconst_3d[:, :, i] = future.result()
+    end = time.time()
+    print('マルチスレッド: TIME {:.4f}\n'.format(end - start))
+
+# ファイルのパスを作成
+file_path = os.path.join(folder_name, 'random_data.npy')
+
+# データを保存
+np.save(file_path, reconst_3d)
+print('3D array saved to reconst_3d.npy')
