@@ -8,6 +8,7 @@ import multiprocessing
 from threading import Thread
 import os
 import matplotlib.image as mpimg
+import h5py
 
 def nearpropCONV(Comp1, sizex, sizey, dx, dy, shiftx, shifty, wa, d):
     if d == 0:
@@ -59,15 +60,16 @@ start_time = time.time()
 num_images = 32
 
 # フォルダを作成
-folder_name = f'C:\\Users\\Owner\\mizusaki\\3d-holography\\app\python\\3d-imaging\\output\\RawOutputData_{num_images}_{Nx}x{Ny}_10{times}_pixels={pixels}_d={dz *10**times}_initialPlace{initial_place}'
+folder_name = f'.\\app\python\\3d-imaging\\output\\RawOutputData_{num_images}_{Nx}x{Ny}_10{times}_pixels={pixels}_d={dz *10**times}_initialPlace{initial_place}'
 os.makedirs(folder_name, exist_ok=True)
 
+max = 32
 
 # 出力画像の初期化
 output_images = [np.zeros((Nx, Ny), dtype=np.complex128) for _ in range(num_images)]
 
 # 画像の読み込みとリサイズ
-images = [cv2.resize(cv2.imread(f'C:\\Users\\Owner\\mizusaki\\3d-holography\\app\python\\3d-imaging\\src\\Original2Dimages_{box_number}_{pixels}px_{Nx}x{Ny}x{num_images}\\image_{(i):05d}.png', cv2.IMREAD_GRAYSCALE).astype(float), (Nx, Ny)) for i in range(1, num_images + 1)]
+images = [cv2.resize(cv2.imread(f'.\\app\python\\3d-imaging\\src\\Original2Dimages_{box_number}_{pixels}px_{Nx}x{Ny}x{num_images}\\image_{(i):05d}.png', cv2.IMREAD_GRAYSCALE).astype(float), (Nx, Ny)) for i in range(1, num_images + 1)]
 
 # 並列処理
 with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
@@ -111,14 +113,53 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
     # 各画像に対してcal_save_image関数を並列に実行
     futures = [executor.submit(cal_save_image, i, SLM_data, Nx, Ny, dx, dy, wav_len, initial_place, times) for i in range(1, num_images+1)]
     for i, future in enumerate(concurrent.futures.as_completed(futures)):
-        print(i)
         reconst_3d[:, :, i] = future.result()
     end = time.time()
     print('マルチスレッド: TIME {:.4f}\n'.format(end - start))
 
-# ファイルのパスを作成
-file_path = os.path.join(folder_name, 'random_data.npy')
+# HDFファイルを作成
+# 3次元配列に変換
+label_3d = np.stack(images, axis=-1)
+raw_3d = reconst_3d
 
-# データを保存
-np.save(file_path, reconst_3d)
-print('3D array saved to reconst_3d.npy')
+# HDFファイルの作成
+# 保存先ディレクトリ
+output_dir = r'.\\app\\python\\3d-imaging\\hdf'
+output_file = os.path.join(output_dir, 'data.h5')
+
+with h5py.File(output_file, 'w') as f:
+    # データセットの作成
+    f.create_dataset('raw', data=raw_3d, compression='gzip')
+    f.create_dataset('label', data=label_3d, compression='gzip')
+
+print(f"HDF5ファイル '{output_file}' が 'raw' と 'label' のデータセットで作成されました")
+
+# # ファイルのパスを作成
+# file_path = os.path.join(folder_name, 'random_data.npy')
+
+# # データを保存
+# np.save(file_path, reconst_3d)
+# print('3D array saved to reconst_3d.npy')
+
+# def compare_slices(reconst_3d, index1, index2):
+#     """
+#     Compare two slices of the 3D reconstructed data to check if they are identical.
+    
+#     Parameters:
+#     reconst_3d (numpy.ndarray): The 3D array containing the reconstructed data.
+#     index1 (int): The index of the first slice to compare.
+#     index2 (int): The index of the second slice to compare.
+    
+#     Returns:
+#     bool: True if the slices are identical, False otherwise.
+#     """
+#     slice1 = reconst_3d[:, :, index1]
+#     slice2 = reconst_3d[:, :, index2]
+    
+#     return np.array_equal(slice1, slice2)
+
+# # Example usage
+# index1 = 9
+# index2 = 1
+# are_identical = compare_slices(reconst_3d, index1, index2)
+# print(f"Are the slices at index {index1} and {index2} identical? {are_identical}")

@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import concurrent.futures
 import os
 import time
+import torch
 
 def nearpropCONV(Comp1, sizex, sizey, dx, dy, shiftx, shifty, wa, d):
     if d == 0:
@@ -32,6 +33,17 @@ def process_image(n, images, sizex, sizey, dx, dy, wav_len, output_images):
     d = (n+1) * dz * pixels + initial_place
     output_images[n] = nearpropCONV(input_image, sizex, sizey, dx, dy, 0, 0, wav_len, d)
 
+def isAllZeros(image):
+    nonzero_indices = torch.nonzero(torch.abs(image) > 0)
+
+    if len(nonzero_indices) > 0:
+        print("非ゼロ要素が見つかりました。")
+        for index in nonzero_indices:
+            value = image[index[0], index[1]]
+            print(f"非ゼロ要素のインデックス: {index}, 値: {value}")
+    else:
+        print("全ての要素が0です。")
+
 # 波長や画像サイズなどのパラメータ
 i = 1j
 wav_len = 532.0 * 10**-9
@@ -49,6 +61,7 @@ box_number=4
 fig = plt.figure()
 
 # 画像の読み込み時間計測開始
+print("計測開始")
 start_time = time.time()
 
 # 画像の枚数
@@ -66,6 +79,8 @@ images = [cv2.resize(cv2.imread(f'C:\\Users\\Owner\\mizusaki\\3d-holography\\app
 
 # 画像をCuPy配列に変換
 images = [cp.asarray(image) for image in images]
+
+isAllZeros(images[0])
 
 # 並列処理
 with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
