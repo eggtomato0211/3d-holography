@@ -39,8 +39,8 @@ def process_image(label_data_npy, sizex, sizey, sizez, dx, dy, wav_len):
     initial_phase = generate_random_phase(label_data_npy.shape)
     input_data = label_data_npy * np.exp(1j * initial_phase)
     d = initial_place
-    output_data_npy = nearpropCONV(input_data, sizex, sizey, sizez, dx, dy, 0, 0, 0, wav_len, d)
-    return output_data_npy
+    output_data = nearpropCONV(input_data, sizex, sizey, sizez, dx, dy, 0, 0, 0, wav_len, d)
+    return output_data
 
 # 波長や画像サイズなどのパラメータ
 i = 1j
