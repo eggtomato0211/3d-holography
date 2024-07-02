@@ -6,6 +6,20 @@ import time
 import concurrent.futures
 import os
 import matplotlib.image as mpimg
+from HDF import HDF
+
+def load_image(i, Nx, Ny):
+    path = f'C:\\Users\\Owner\\mizusaki\\3d-holography\\app\\python\\3d-imaging\\src\\number_{Nx}x{Ny}\\number_{i:05d}.png'
+    return cv2.imread(path, cv2.IMREAD_GRAYSCALE).astype(float)
+
+def load_images(Nx, Ny, channels, depthlevel):
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [executor.submit(load_image, i, Nx, Ny) for i in range(1, channels * depthlevel + 1)]
+        images = [future.result() for future in concurrent.futures.as_completed(futures)]
+    
+    # 元の順序に戻す
+    images.sort(key=lambda x: futures.index(next(future for future in futures if future.result() is x)))
+    return images
 
 def nearpropCONV(Comp1, sizex, sizey, dx, dy, wa, d):
     if d == 0:
@@ -46,13 +60,14 @@ def cal_save_image(args):
 
     return reconst_2d
 
+
 # 波長や画像サイズなどのパラメータ
 i = 1j
 wav_len = 532.0 * 10**-9
-Nx, Ny = 128, 128
+Nx, Ny = 1024, 1024
 dx = 3.45 * 10**-6
 dy = dx
-dz = 3.45
+dz = 3.45 * 2 * 10**-6
 wav_num = 2 * np.pi / wav_len
 times = -4 
 initial_place = (10**times)*1000
@@ -64,15 +79,15 @@ fig = plt.figure()
 start_time = time.time()
 
 # z軸の枚数
-depthlevel = 128
+depthlevel = 16
 
 #channelの数
-channels = 16
-init_channel = 16
+channels = 78
+init_channel = 0
 
 #(channels, depthlevel, Nx, Ny)の配列を作成
-raw_data = np.zeros((channels, depthlevel, Nx, Ny), dtype=complex)
-label_data = np.zeros((channels, depthlevel, Nx, Ny), dtype=complex)
+raw_data = np.zeros((depthlevel, Nx, Ny), dtype=float)
+label_data = np.zeros((depthlevel, Nx, Ny), dtype=float)
 
 # フォルダを作成
 folder_name = f'.\\app\\python\\3d-imaging\\output\\RawOutputData_{depthlevel}_{Nx}x{Ny}_d={dz}'
@@ -80,16 +95,15 @@ os.makedirs(folder_name, exist_ok=True)
 
 
 # 画像の読み込み
-images = [cv2.imread(f'C:\\Users\\Owner\\mizusaki\\3d-holography\\app\\python\\3d-imaging\\src\\number_{Nx}x{Ny}\\number_{(i):05d}.png', cv2.IMREAD_GRAYSCALE).astype(float) for i in range(1, 10000)]
-
-#Label_dataの作成
-for channel in range(init_channel, init_channel + channels):
-    for depth in range(depthlevel):
-        label_data[channel-init_channel, depth, :, :] = images[channel * depthlevel + depth]
+images = load_images(Nx, Ny, channels, depthlevel)
 
 print("計算を開始します。")
 
 for channel in range(init_channel, init_channel + channels):
+    
+    for depth in range(depthlevel):
+        label_data[depth, :, :] = images[channel * depthlevel + depth]
+
     # 並列処理の引数を準備
     args_list = [(n, images, Nx, Ny, dx, dy, wav_len, initial_place, dz) for n in range(channel*depthlevel, (channel+1)*depthlevel)]
 
@@ -126,20 +140,19 @@ for channel in range(init_channel, init_channel + channels):
     
     # 結果を配列に格納
     for depth in range(depthlevel):
-        raw_data[channel - init_channel, depth, :, :] = np.abs(results[depth])
+        raw_data[depth, :, :] = np.abs(results[depth])
         output_image_path = os.path.join(folder_name, f"reconstructed_{depthlevel*channel+depth+1:05d}.png")
         plt.imsave(output_image_path, np.abs(results[depth]), cmap='gray')
 
-# Label_dataの1つ表示
-plt.imshow(np.abs(label_data[1, 13, :, :]), cmap='gray')
-plt.show()
+    # Label_dataの1つ表示
+    # plt.imshow(np.abs(label_data[1, :, :]), cmap='gray')
+    # plt.show()
 
-#Raw_dataの1つ表示
-plt.imshow(np.abs(raw_data[1, 13, :, :]), cmap='gray')
-plt.show()
+    # #Raw_dataの1つ表示
+    # plt.imshow(np.abs(raw_data[1, :, :]), cmap='gray')
+    # plt.show()
 
-#HDF5ファイルに保存
-from makeHDF import makeHDF
-# インスタンスを作成
-hdf_maker = makeHDF()
-hdf_maker.makeHDF(raw_data, label_data, f"val_channels={channels}_{Nx}x{Ny}_{depthlevel}_d={dz}.h5")
+    #HDF5ファイルに保存
+    # インスタンスを作成
+    hdf_maker = HDF(Nx, Ny, depthlevel, dz, None)
+    hdf_maker.makeHDF(raw_data, label_data, f"NumberFrom{channel*depthlevel+1}.h5")
