@@ -8,17 +8,36 @@ import os
 import matplotlib.image as mpimg
 from HDF import HDF
 
-def load_image(i, Nx, Ny):
+def load_image(Nx, Ny):
+    #iを1から10000まででランダムな数値を取得
+    i = np.random.randint(1, 10000)
     path = f'C:\\Users\\Owner\\mizusaki\\3d-holography\\app\\python\\3d-imaging\\src\\number_{Nx}x{Ny}\\number_{i:05d}.png'
     return cv2.imread(path, cv2.IMREAD_GRAYSCALE).astype(float)
 
 def load_images(Nx, Ny, channels, depthlevel):
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(load_image, i, Nx, Ny) for i in range(1, channels * depthlevel + 1)]
+        futures = [executor.submit(load_image, Nx, Ny) for i in range(1, channels * depthlevel + 1)]
         images = [future.result() for future in concurrent.futures.as_completed(futures)]
     
     # 元の順序に戻す
     images.sort(key=lambda x: futures.index(next(future for future in futures if future.result() is x)))
+    return images
+
+def load_one_image(Nx, Ny, channels, depthlevel, image_number):
+    images = np.zeros((depthlevel*channels + 1, Nx, Ny), dtype=float)
+    for n in range(0, channels):
+        for k in range(0, image_number):
+            print(f"channel: {n}, image: {k}")
+            #iを1から10000まででランダムな数値を取得
+            i = np.random.randint(1, 10000)
+            path = f'C:\\Users\\Owner\\mizusaki\\3d-holography\\app\\python\\3d-imaging\\src\\number_{Nx}x{Ny}\\number_{i:05d}.png'
+            image = cv2.imread(path, cv2.IMREAD_GRAYSCALE).astype(float)
+            #depthに代入
+            for l in range(0, depthlevel):
+                depth = np.random.randint(0, depthlevel)
+                if images[n*depthlevel + depth].sum() == 0:
+                    images[n*depthlevel + depth] = image
+                    break 
     return images
 
 def nearpropCONV(Comp1, sizex, sizey, dx, dy, wa, d):
@@ -39,16 +58,18 @@ def nearpropCONV(Comp1, sizex, sizey, dx, dy, wa, d):
     return Recon
 
 # ランダム位相分布
-def generate_random_phase(shape, mode=None):
-    #もしmodeがNoneの場合
-    if mode is None:
+def generate_random_phase(shape, random_mode):
+    #もしmodeがTrueの場合
+    if random_mode == True:
         return (np.random.rand(*shape) - 0.5) * 2.0 * 2.0 * np.pi
-    #もしmodeがNoneでない場合
+    
+    #modeがFalseの場合
+    np.random.seed(42)
     return (np.random.rand(*shape) - 0.5) * 2.0 * 2.0 * np.pi
 
 def process_image(args):
-    n, images, sizex, sizey, dx, dy, wav_len, initial_place, dz = args
-    initial_phase = generate_random_phase(images[n].shape)
+    n, images, sizex, sizey, dx, dy, wav_len, initial_place, dz, random_mode = args
+    initial_phase = generate_random_phase(images[n].shape, random_mode)
     input_image = images[n] * np.exp(1j * initial_phase)
     d = (n % depthlevel + 1) * dz + initial_place
     output_image = nearpropCONV(input_image, sizex, sizey, dx, dy, wav_len, d)
@@ -71,10 +92,10 @@ wav_len = 532.0 * 10**-9
 Nx, Ny = 128, 128
 dx = 3.45 * 10**-6
 dy = dx
-dz = 3.45 * 2 * 10**-6
+dz = 3.45 * 2 * 10**-5
 wav_num = 2 * np.pi / wav_len
 times = -1 
-initial_place = (10**times)
+initial_place = 10**times
 
 # フィギュアを作成
 fig = plt.figure()
@@ -86,20 +107,35 @@ start_time = time.time()
 depthlevel = 128
 
 #channelの数
-channels = 76
-init_channel = 2
+channels = 78
+init_channel = 0
 
 #(channels, depthlevel, Nx, Ny)の配列を作成
 raw_data = np.zeros((depthlevel, Nx, Ny), dtype=float)
 label_data = np.zeros((depthlevel, Nx, Ny), dtype=float)
 
-# フォルダを作成
-folder_name = f'.\\app\\python\\3d-imaging\\output\\RawOutputData_{depthlevel}_{Nx}x{Ny}_d={dz}'
-os.makedirs(folder_name, exist_ok=True)
+one_image = True
 
+#random位相を使用するか
+random_mode = False
 
-# 画像の読み込み
-images = load_images(Nx, Ny, channels, depthlevel)
+# 画像を何枚配置するかどうか
+image_number = 2
+
+if one_image:
+    images = load_one_image(Nx, Ny, channels, depthlevel, image_number)
+    print("One image loaded.")
+    # フォルダを作成
+    folder_name = f'.\\app\\python\\3d-imaging\\output\\Images={image_number}_{Nx}x{Ny}x{depthlevel}_d={dz}_RandomPhase={random_mode}'
+    os.makedirs(folder_name, exist_ok=True)
+    output_folder_name = rf'.\app\python\3d-imaging\hdf\Images={image_number}_{Nx}x{Ny}x{depthlevel}_d={dz}_RandomPhase={random_mode}'
+else:
+    images = load_images(Nx, Ny, channels, depthlevel)
+    print("Multi Images loaded.")
+    # フォルダを作成
+    folder_name = f'.\\app\\python\\3d-imaging\\output\\All_{Nx}x{Ny}x{depthlevel}_d={dz}_RandomPhase={random_mode}'
+    os.makedirs(folder_name, exist_ok=True)
+    output_folder_name = rf'.\app\python\3d-imaging\hdf\All_{Nx}x{Ny}x{depthlevel}_d={dz}_RandomPhase={random_mode}'
 
 print("計算を開始します。")
 
@@ -109,7 +145,7 @@ for channel in range(init_channel, init_channel + channels):
         label_data[depth, :, :] = images[channel * depthlevel + depth]
 
     # 並列処理の引数を準備
-    args_list = [(n, images, Nx, Ny, dx, dy, wav_len, initial_place, dz) for n in range(channel*depthlevel, (channel+1)*depthlevel)]
+    args_list = [(n, images, Nx, Ny, dx, dy, wav_len, initial_place, dz, random_mode) for n in range(channel*depthlevel, (channel+1)*depthlevel)]
 
     # 並列処理
     with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
@@ -148,7 +184,7 @@ for channel in range(init_channel, init_channel + channels):
         output_image_path = os.path.join(folder_name, f"reconstructed_{depthlevel*channel+depth+1:05d}.png")
         plt.imsave(output_image_path, np.abs(results[depth]), cmap='gray')
 
-    # Label_dataの1つ表示
+    # #Label_dataの1つ表示
     # plt.imshow(np.abs(label_data[1, :, :]), cmap='gray')
     # plt.show()
 
@@ -156,7 +192,7 @@ for channel in range(init_channel, init_channel + channels):
     # plt.imshow(np.abs(raw_data[1, :, :]), cmap='gray')
     # plt.show()
 
-    #HDF5ファイルに保存
+    # HDF5ファイルに保存
     # インスタンスを作成
-    hdf_maker = HDF(Nx, Ny, depthlevel, dz, None)
+    hdf_maker = HDF(Nx, Ny, depthlevel, dz, output_folder_name)
     hdf_maker.makeHDF(raw_data, label_data, f"NumberFrom{channel*depthlevel+1}.h5")

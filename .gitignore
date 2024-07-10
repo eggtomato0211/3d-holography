@@ -168,6 +168,9 @@ cython_debug/
 *.png
 *.gif
 
+#video
+*.mp4
+
 #Matlab
 __MACOSX/
 .DS_Store
