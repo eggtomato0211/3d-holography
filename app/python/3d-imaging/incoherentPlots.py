@@ -23,6 +23,8 @@ def load_images(Nx, Ny, pixels, channels, depthlevel):
 
 def nearpropCONV(Comp1, sizex, sizey, dx, dy, wa, d):
     if d == 0:
+        print("d == 0")
+        # print(np.max(Comp1))
         Recon = Comp1
     else:
         x1, x2 = -sizex//2, sizex//2-1
@@ -40,42 +42,35 @@ def nearpropCONV(Comp1, sizex, sizey, dx, dy, wa, d):
 
 # ランダム位相分布
 def generate_random_phase(shape, mode=None):
-    #もしmodeがNoneの場合
-    if mode is None:
+    #もしmodeがTrueの場合
+    if random_mode == True:
         return (np.random.rand(*shape) - 0.5) * 2.0 * 2.0 * np.pi
-    #もしmodeがNoneでない場合
+    
+    #modeがFalseの場合
+    np.random.seed(42)
+    # print("Random phase is not used.")
     return (np.random.rand(*shape) - 0.5) * 2.0 * 2.0 * np.pi
 
 def process_image(args):
-    n, images, sizex, sizey, dx, dy, wav_len, initial_place, dz = args
-    initial_phase = generate_random_phase(images[n].shape)
-    input_image = images[n] * np.exp(1j * initial_phase)
-    d = (n % depthlevel + 1) * dz + initial_place
-    output_image = nearpropCONV(input_image, sizex, sizey, dx, dy, wav_len, d)
-    return output_image
-
-def cal_save_image(args):
-    l, SLM_data, Nx, Ny, dx, dy, wav_len, initial_place = args
-    reconst_2d = nearpropCONV(SLM_data, Nx, Ny, dx, dy, wav_len, -1.0 * ((l % depthlevel +1) * dz  + initial_place))
-    print("process：", l)
-    #  # 画像を保存
-    # output_image_path = os.path.join(folder_name, f"reconstructed_{l+1:05d}.png")
-    # plt.imsave(output_image_path, np.abs(reconst_2d), cmap='gray')
-
-    return reconst_2d
+    n, images, sizex, sizey, dx, dy, wav_len, dz, random_mode, channel = args
+    # initial_phase = generate_random_phase(images[n].shape, random_mode)
+    input_image = images[n + channel * depthlevel] * np.exp(1j)
+    output_3dimage = np.zeros((depthlevel, Nx, Ny), dtype=float)
+    for z in range(depthlevel):
+        output_3dimage[z] = np.abs(nearpropCONV(input_image, sizex, sizey, dx, dy, wav_len, (n - z) * dz))**2
+    # print(np.max(output_3dimage))
+    return output_3dimage
 
 
 # 波長や画像サイズなどのパラメータ
 i = 1j
 wav_len = 532.0 * 10**-9
-Nx, Ny = 1024, 1024
-dx = 13 * 10**-6
+Nx, Ny = 128, 128
+dx = 3.45 * 10**-6
 dy = dx
-dz = 2 * 10**-6
+dz = 4 * 10**-6
 wav_num = 2 * np.pi / wav_len
-times = -1 
-initial_place = (10**times)
-pixels = 12
+pixels = 1
 
 # フィギュアを作成
 fig = plt.figure()
@@ -84,21 +79,20 @@ fig = plt.figure()
 start_time = time.time()
 
 # z軸の枚数
-depthlevel = 80
+depthlevel = 128
 
 #channelの数
 channels = 78
 init_channel = 0
 
-#(channels, depthlevel, Nx, Ny)の配列を作成
-raw_data = np.zeros((depthlevel, Nx, Ny), dtype=float)
-label_data = np.zeros((depthlevel, Nx, Ny), dtype=float)
+#random位相を使用するか
+random_mode = False
 
 # フォルダを作成
-folder_name = f'.\\app\\python\\3d-imaging\\output\\{Nx}x{Ny}x{depthlevel}_d={dz}_pixels={pixels}'
+folder_name = f'.\\app\\python\\3d-imaging\\output\\{Nx}x{Ny}x{depthlevel}_d={dz}_pixels={pixels}_0-1'
 os.makedirs(folder_name, exist_ok=True)
 
-output_hdfdir = rf'.\app\\python\3d-imaging\hdf\{Nx}x{Ny}x{depthlevel}_d={dz}_pixels={pixels}'
+output_hdfdir = rf'.\app\\python\3d-imaging\hdf\{Nx}x{Ny}x{depthlevel}_d={dz}_pixels={pixels}_0-1'
 
 # 画像の読み込み
 images = load_images(Nx, Ny, pixels, channels, depthlevel)
@@ -106,69 +100,62 @@ images = load_images(Nx, Ny, pixels, channels, depthlevel)
 print("計算を開始します。")
 
 for channel in range(init_channel, init_channel + channels):
-    
+    #(channels, depthlevel, Nx, Ny)の配列を作成
+    raw_data = np.zeros((depthlevel, Nx, Ny), dtype=float)
+    label_data = np.zeros((depthlevel, Nx, Ny), dtype=float)
+
+    print(f"Process: {channel+1}")
     for depth in range(depthlevel):
         label_data[depth, :, :] = images[channel * depthlevel + depth]
 
     # 並列処理の引数を準備
-    args_list = [(n, images, Nx, Ny, dx, dy, wav_len, initial_place, dz) for n in range(channel*depthlevel, (channel+1)*depthlevel)]
+    args_list = [(n, images, Nx, Ny, dx, dy, wav_len, dz, random_mode, channel) for n in range(0, depthlevel)]
 
     # 並列処理
     with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
-        output_images = list(executor.map(process_image, args_list))
+        output_3dimages = list(executor.map(process_image, args_list))
     
-    # 先にoutput_imagesの絶対値を計算する
-    absolute_output_images = np.abs(output_images)**2
-
-    # 絶対値を計算した後に合計する
-    total_output_images = np.sum(absolute_output_images, axis=0)
-
-    # 合計する
-    total_output_images = np.sum(output_images, axis=0)
-    print(total_output_images)
-
-    # 振幅と位相分布の計算
-    amplitude_output = np.abs(total_output_images)
-    phase_output = np.angle(total_output_images)
-
-    # 画像の処理時間計測終了
-    processing_time = time.time() - start_time
-
-    # 時間表示
-    print(f"画像の処理時間: {processing_time} 秒")
-
-    # 再生計算
-    SLM_data = np.exp(i * phase_output)
-
-    # 並列処理の引数を準備
-    cal_args_list = [(l, SLM_data, Nx, Ny, dx, dy, wav_len, initial_place) for l in range(channel*depthlevel, (channel+1)*depthlevel)]
-
-    # 並列処理
-    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
-        start = time.time()
-        results = list(executor.map(cal_save_image, cal_args_list))
-        end = time.time()
-        print('マルチスレッド: TIME {:.4f}\n'.format(end - start))
+    # output_3dimagesをNumPy配列に変換
+    output_3dimages = np.array(output_3dimages)
     
-    max_value = 0
-    min_value = 0
+    # 合計を計算してraw_dataに追加
+    for depth in range(depthlevel):
+        raw_data[depth, :, :] = np.sum(output_3dimages[:, depth, :, :], axis=0)
+        print(np.max(raw_data[depth]))
+
 
     # for k in range(depthlevel):
+    #     if k == 0:
+    #         max_value = np.max(np.abs(raw_data[k]))
+    #         min_value = np.min(np.abs(raw_data[k]))
     #     # すべてのフレームの中で一番大きい値、小さい値を取得
-    #     tmp_max_value = np.max(np.abs(results[k]))
-    #     tmp_min_value = np.min(np.abs(results[k]))
+    #     tmp_max_value = np.max(np.abs(raw_data[k]))
+    #     tmp_min_value = np.min(np.abs(raw_data[k]))
     #     # 前のmax_value, min_valueと比較して大きい値、小さい値を取得
     #     if tmp_max_value > max_value:
     #         max_value = tmp_max_value
     #     if tmp_min_value < min_value:
     #         min_value = tmp_min_value
     
+    # print(f"max_value: {max_value}, min_value: {min_value}")
+    
     # 結果を配列に格納
     for depth in range(depthlevel):
-        # raw_data[depth, :, :] = ((np.abs(results[depth]) - min_value) / (max_value - min_value) * 255).astype('uint8')
-        raw_data[depth, :, :] = np.abs(results[depth])
+        # raw_data[depth, :, :] = ((np.abs(raw_data[depth]) - min_value) / (max_value - min_value) * 255).astype('uint8')
         output_image_path = os.path.join(folder_name, f"reconstructed_{depthlevel*channel+depth+1:05d}.png")
-        plt.imsave(output_image_path, np.abs(results[depth]), cmap='gray')
+        plt.imsave(output_image_path, np.abs(raw_data[depth]), cmap='gray')
+    
+    min_val = np.min(raw_data)
+    max_val = np.max(raw_data)
+
+    # 正規化を行う
+    raw_data = (raw_data - min_val) / (max_val - min_val)
+
+    min_val = np.min(label_data)
+    max_val = np.max(label_data)
+
+    # 正規化を行う
+    label_data = (label_data - min_val) / (max_val - min_val)
 
     # # Label_dataの1つ表示
     # plt.imshow(np.abs(label_data[1, :, :]), cmap='gray')

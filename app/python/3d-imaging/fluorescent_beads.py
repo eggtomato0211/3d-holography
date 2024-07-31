@@ -68,14 +68,14 @@ def cal_save_image(args):
 # 波長や画像サイズなどのパラメータ
 i = 1j
 wav_len = 532.0 * 10**-9
-Nx, Ny = 1024, 1024
-dx = 13 * 10**-6
+Nx, Ny = 128, 128
+dx = 3.45 * 10**-6
 dy = dx
-dz = 2 * 10**-6
+dz = 4 * 10**-6
 wav_num = 2 * np.pi / wav_len
 times = -1 
 initial_place = (10**times)
-pixels = 12
+pixels = 3
 
 # フィギュアを作成
 fig = plt.figure()
@@ -84,10 +84,10 @@ fig = plt.figure()
 start_time = time.time()
 
 # z軸の枚数
-depthlevel = 80
+depthlevel = 128
 
 #channelの数
-channels = 78
+channels = 1
 init_channel = 0
 
 #(channels, depthlevel, Nx, Ny)の配列を作成
@@ -153,30 +153,29 @@ for channel in range(init_channel, init_channel + channels):
     max_value = 0
     min_value = 0
 
-    # for k in range(depthlevel):
-    #     # すべてのフレームの中で一番大きい値、小さい値を取得
-    #     tmp_max_value = np.max(np.abs(results[k]))
-    #     tmp_min_value = np.min(np.abs(results[k]))
-    #     # 前のmax_value, min_valueと比較して大きい値、小さい値を取得
-    #     if tmp_max_value > max_value:
-    #         max_value = tmp_max_value
-    #     if tmp_min_value < min_value:
-    #         min_value = tmp_min_value
+    for k in range(depthlevel):
+        # すべてのフレームの中で一番大きい値、小さい値を取得
+        tmp_max_value = np.max(np.abs(results[k]))
+        tmp_min_value = np.min(np.abs(results[k]))
+        # 前のmax_value, min_valueと比較して大きい値、小さい値を取得
+        if tmp_max_value > max_value:
+            max_value = tmp_max_value
+        if tmp_min_value < min_value:
+            min_value = tmp_min_value
     
     # 結果を配列に格納
     for depth in range(depthlevel):
-        # raw_data[depth, :, :] = ((np.abs(results[depth]) - min_value) / (max_value - min_value) * 255).astype('uint8')
-        raw_data[depth, :, :] = np.abs(results[depth])
+        raw_data[depth, :, :] = ((np.abs(results[depth]) - min_value) / (max_value - min_value) * 255).astype('uint8')
         output_image_path = os.path.join(folder_name, f"reconstructed_{depthlevel*channel+depth+1:05d}.png")
         plt.imsave(output_image_path, np.abs(results[depth]), cmap='gray')
 
-    # # Label_dataの1つ表示
-    # plt.imshow(np.abs(label_data[1, :, :]), cmap='gray')
-    # plt.show()
+    # Label_dataの1つ表示
+    plt.imshow(np.abs(label_data[1, :, :]), cmap='gray')
+    plt.show()
 
-    # # Raw_dataの1つ表示
-    # plt.imshow(np.abs(raw_data[1, :, :]), cmap='gray')
-    # plt.show()
+    # Raw_dataの1つ表示
+    plt.imshow(np.abs(raw_data[1, :, :]), cmap='gray')
+    plt.show()
 
     # HDF5ファイルに保存
     # インスタンスを作成
