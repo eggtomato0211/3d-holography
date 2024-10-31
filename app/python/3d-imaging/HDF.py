@@ -76,7 +76,7 @@ class HDF:
             # 動画のフレームレート
             fps = 1
             # 動画の保存先
-            movie_file = os.path.join(self.output_dir, f'{type}_movie.mp4')
+            movie_file = os.path.join(self.output_dir, f'{type}_movie_background={background_mode}.mp4')
             print(f"動画ファイル '{movie_file}' を作成します")
 
              # 動画の作成
@@ -86,42 +86,27 @@ class HDF:
                 print(f"動画ファイル '{movie_file}' の作成に失敗しました")
                 return
             
-            max_value = 0
-            min_value = 255
-            background_value = 0
-            
-            for k in range(num_frames):
-                if k == 0:
-                    if background_mode == True:
-                        #1フレームあたりのすべてのピクセルの平均値を取得
-                        background_value = np.mean(np.abs(data[0, k, :, :]))
-                        print(f"background_value: {background_value}")
+            max_value = -1
+            min_value = 1
 
+            for k in range(num_frames):
                 # すべてのフレームの中で一番大きい値、小さい値を取得
-                tmp_max_value = np.max(np.abs(data[0, k, :, :]))
-                tmp_min_value = np.min(np.abs(data[0, k, :, :]))
+                tmp_max_value = np.max(data[0, k, :, :])
+                tmp_min_value = np.min(data[0, k, :, :])
                 # 前のmax_value, min_valueと比較して大きい値、小さい値を取得
                 if tmp_max_value > max_value:
                     max_value = tmp_max_value
                 if tmp_min_value < min_value:
                     min_value = tmp_min_value
-
-                # 計算を行い、結果が0未満の場合は0にする
-                data[0, k, :, :] = np.maximum(np.abs(data[0, k, :, :]) - background_value, 0)
             
-            max_value = max_value - background_value
-            # min_value = min_value - background_value ただし、0未満の場合は0にする
-            if min_value - background_value < 0:
-                min_value = 0
-            else:
-                min_value = min_value - background_value
+            max_value = max_value
             
             print(f"max_value: {max_value}")
             print(f"min_value: {min_value}")
 
             for i in range(num_frames):
                 # フレームを正しい形式に変換
-                frame = np.abs(data[0, i, :, :])
+                frame = data[0, i, :, :]
                 # フレームの正規化
                 # フレームを0〜255の範囲にスケーリング
                 frame = ((frame - min_value) / (max_value - min_value) * 255).astype('uint8')
@@ -162,14 +147,13 @@ class HDF:
                 print(f"動画ファイル '{movie_file}' の作成に失敗しました")
                 return
             
-            max_value = 0
-            min_value = 255
+            max_value = -1
+            min_value = 1
             
             for k in range(num_frames):
-
                 # すべてのフレームの中で一番大きい値、小さい値を取得
-                tmp_max_value = np.max(np.abs(data[k, :, :]))
-                tmp_min_value = np.min(np.abs(data[k, :, :]))
+                tmp_max_value = np.max(data[k, :, :])
+                tmp_min_value = np.min(data[k, :, :])
                 # 前のmax_value, min_valueと比較して大きい値、小さい値を取得
                 if tmp_max_value > max_value:
                     max_value = tmp_max_value
@@ -181,7 +165,7 @@ class HDF:
 
             for i in range(num_frames):
                 # フレームを正しい形式に変換
-                frame = np.abs(data[i, :, :])
+                frame = data[i, :, :]
                 # フレームの正規化
                 # フレームを0〜255の範囲にスケーリング
                 frame = ((frame - min_value) / (max_value - min_value) * 255).astype('uint8')
@@ -231,3 +215,31 @@ class HDF:
             video.release()
             print(f"動画ファイル '{movie_file}' が作成されました")
         return
+    
+    def show_histogram(self, type, hdf5_file, depth, z_range=0):
+        with h5py.File(hdf5_file, 'r') as f:
+            data = f[type][:]
+            print(f"{type}データの形状: {data.shape}")
+             # "predictions" データセットから指定されたzスライスのデータを取得
+            
+            # 指定された範囲のzスライスを取得
+            z_slices = range(max(0, depth - z_range), min(data.shape[1], depth + z_range + 1))
+
+            # ヒストグラムをプロット
+            plt.figure(figsize=(10, 8))
+            for z in z_slices:
+                slice_data = data[0, z, :, :]
+                # 各スライスの最大値と最小値を計算
+                max_value = np.max(slice_data)
+                min_value = np.min(slice_data)
+                
+                # 最大値と最小値を表示
+                print(f'z = {z}: Max = {max_value}, Min = {min_value}')
+                plt.hist(slice_data.flatten(), bins=100, alpha=0.5, label=f'z = {z}')
+        
+        # プロットの装飾
+        plt.title(f'Histogram of z-slices from {depth - z_range} to {depth + z_range}')
+        plt.xlabel('Pixel Value')
+        plt.ylabel('Frequency')
+        plt.legend()
+        plt.show()

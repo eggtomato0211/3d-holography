@@ -65,7 +65,7 @@ def process_image(args):
 # 波長や画像サイズなどのパラメータ
 i = 1j
 wav_len = 532.0 * 10**-9
-Nx, Ny = 128, 128
+Nx, Ny = 32, 32
 dx = 3.45 * 10**-6
 dy = dx
 dz = 4 * 10**-6

@@ -65,7 +65,7 @@ def process_image(args):
 # 波長や画像サイズなどのパラメータ
 i = 1j
 wav_len = 532.0 * 10**-9
-Nx, Ny = 128, 128
+Nx, Ny = 32, 32
 dx = 3.45 * 10**-6
 dy = dx
 dz = 4 * 10**-6
@@ -85,7 +85,7 @@ depthlevel = 128
 channels = 78
 init_channel = 0
 
-image_number = 3
+image_number = 32
 
 #random位相を使用するか
 random_mode = False
@@ -159,7 +159,6 @@ for channel in range(init_channel, init_channel + channels):
     min_val = np.min(label_data)
     max_val = np.max(label_data)
 
-    # 正規化を行う
     label_data = (label_data - min_val) / (max_val - min_val)
 
     # # Label_dataの1つ表示
@@ -170,7 +169,22 @@ for channel in range(init_channel, init_channel + channels):
     # plt.imshow(np.abs(raw_data[1, :, :]), cmap='gray')
     # plt.show()
 
+    # 128*128ではないとき、raw_dataとlabel_dataを128*128にリサイズする
+    if Nx != 128:
+        resized_raw_data = np.zeros((depthlevel, 128, 128), dtype=float)
+        resized_label_data = np.zeros((depthlevel, 128, 128), dtype=float)
+        
+        for i in range(depthlevel):
+            # bilinear補間を使用してリサイズ
+            resized_raw_data[i] = cv2.resize(raw_data[i], (128, 128), interpolation=cv2.INTER_LINEAR)
+            resized_label_data[i] = cv2.resize(label_data[i], (128, 128), interpolation=cv2.INTER_LINEAR)
+        
+        raw_data = resized_raw_data
+        label_data = resized_label_data
+        
+        print(f"データを 32x32x{depthlevel} から 128x128x{depthlevel} にリサイズしました。")
+
     # HDF5ファイルに保存
     # インスタンスを作成
-    hdf_maker = HDF(Nx, Ny, depthlevel, dz, output_hdfdir)
+    hdf_maker = HDF(128, 128, depthlevel, dz, output_hdfdir)
     hdf_maker.makeHDF(raw_data, label_data, f"NumberFrom{channel*depthlevel+1}.h5")

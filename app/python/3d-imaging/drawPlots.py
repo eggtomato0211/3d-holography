@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 # 画像サイズ
-width, height, depth = 128, 128, 80
-voxel_size = 12
+width, height, depth = 32, 32, 128
+voxel_size = 1
 
 # 保存用ディレクトリがない場合は作成
 save_dir = f"C:\\Users\\Owner\\mizusaki\\3d-holography\\app\python\\3d-imaging\\src\\{width}x{height}x{depth}_{voxel_size}px"
@@ -27,6 +27,8 @@ def generate_image(i):
         draw.rectangle((x, y, x+voxel_size-1, y+voxel_size-1), fill=(255, 255, 255))
     filename = os.path.join(save_dir, f"image_{i+1:05d}.png")
     img.save(filename)
+
+print("画像の生成を開始します。")
 
 with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
     futures = [executor.submit(generate_image, i) for i in range(10000)]
