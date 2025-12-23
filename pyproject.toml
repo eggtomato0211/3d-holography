@@ -16,6 +16,7 @@ torchaudio = {version = "^2.3.0+cu121", source = "torch_cu121"}
 cupy-cuda12x = "^13.1.0"
 h5py = "^3.11.0"
 moviepy = "^1.0.3"
+pandas = "^2.2.3"
 
 
 [[tool.poetry.source]]

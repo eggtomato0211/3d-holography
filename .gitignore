@@ -175,3 +175,19 @@ cython_debug/
 #Matlab
 __MACOSX/
 .DS_Store
+# Project specific data/output directories
+app/python/3d-imaging/hdf/
+app/python/3d-imaging/images/
+app/python/3d-imaging/movies/
+app/python/3d-imaging/output/
+app/python/3d-imaging/src/
+app/python/3d-imaging/tiff/
+app/python/3d-imaging/values/
+app/python/3d-imaging/gif/
+app/python/3d-imaging/app/
+app/python/3d-imaging/__pycache__/
+
+# Agent and IDE settings
+.agent/
+.vscode/
+

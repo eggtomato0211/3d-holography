@@ -8,13 +8,13 @@ import os
 import matplotlib.image as mpimg
 from HDF import HDF
 
-def load_image(i, Nx, Ny, depthlevel, pixels):
-    path = f'C:\\Users\\Owner\\mizusaki\\3d-holography\\app\\python\\3d-imaging\\src\\{Nx}x{Ny}x{depthlevel}_{pixels}px\\image_{i:05d}.png'
+def load_image(i, Nx, Ny, depthlevel, pixels, number_of_plots):
+    path = f'C:\\Users\\Owner\\mizusaki\\3d-holography\\app\\python\\3d-imaging\\src\\{Nx}x{Ny}x{depthlevel}_{pixels}pxx{number_of_plots}\\image_{i:05d}.png'
     return cv2.imread(path, cv2.IMREAD_GRAYSCALE).astype(float)
 
-def load_images(Nx, Ny, pixels, channels, depthlevel):
+def load_images(Nx, Ny, pixels, number_of_plots, channels, depthlevel):
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(load_image, i, Nx, Ny, depthlevel, pixels) for i in range(1, channels * depthlevel + 1)]
+        futures = [executor.submit(load_image, i, Nx, Ny, depthlevel, pixels, number_of_plots) for i in range(1, channels * depthlevel + 1)]
         images = [future.result() for future in concurrent.futures.as_completed(futures)]
     
     # 元の順序に戻す
@@ -71,6 +71,7 @@ dy = dx
 dz = 4 * 10**-6
 wav_num = 2 * np.pi / wav_len
 pixels = 1
+number_of_plots = 5
 
 # フィギュアを作成
 fig = plt.figure()
@@ -85,19 +86,19 @@ depthlevel = 128
 channels = 78
 init_channel = 0
 
-image_number = 32
+image_number = 64
 
 #random位相を使用するか
 random_mode = False
 
 # フォルダを作成
-folder_name = f'.\\app\\python\\3d-imaging\\output\\Random_{Nx}x{Ny}x{depthlevel}_d={dz}_pixels={pixels}_0-1'
+folder_name = f'.\\app\\python\\3d-imaging\\output\\Random_{Nx}x{Ny}x{depthlevel}_d={dz}_pixels={pixels}_{number_of_plots}plots_{image_number}images'
 os.makedirs(folder_name, exist_ok=True)
 
-output_hdfdir = rf'.\app\\python\3d-imaging\hdf\Random_{Nx}x{Ny}x{depthlevel}_d={dz}_pixels={pixels}_0-1'
+output_hdfdir = rf'.\app\\python\3d-imaging\hdf\Random_{Nx}x{Ny}x{depthlevel}_d={dz}_pixels={pixels}_0-{number_of_plots}plots_{image_number}images'
 
 # 画像の読み込み
-images = load_images(Nx, Ny, pixels, channels, depthlevel)
+images = load_images(Nx, Ny, pixels, number_of_plots, channels, depthlevel)
 
 print("計算を開始します。")
 
