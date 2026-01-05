@@ -364,7 +364,7 @@ def visualize_h5_file(file_path, output_dir=None, visualization_type='scatter'):
 if __name__ == "__main__":
     # 使用例
     # ファイルパスを指定してください
-    hdf_file = r"D:\nosaka\data\3d-holography_output\Train\random_32x32x128_d=4e-06_pixels=1_1plots_32images_dense1-10\1plots_32images_dense1-10_randomTrue_NumberFrom4353.h5"
+    hdf_file = r"D:\nosaka\data\3d-holography_output\Train\random_32x32x128_d=4e-06_pixels=1_1plot"
     
     # 出力ディレクトリ
     output_dir = r"C:\Users\Owner\.gemini\antigravity\brain\76a15ec6-a4a9-49b9-b8fd-0d855333ec28"
